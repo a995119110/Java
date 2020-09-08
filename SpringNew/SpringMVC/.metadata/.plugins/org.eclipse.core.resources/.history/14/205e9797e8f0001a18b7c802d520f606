@@ -1,0 +1,220 @@
+package com.servicesImpl;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.apache.log4j.Logger;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.controllers.UploadController;
+import com.dao.UploadDao;
+import com.entities.Score;
+import com.services.UploadServices;
+
+@Service
+public class UploadServicesImpl implements UploadServices{
+
+	private static final Logger log = Logger.getLogger(UploadController.class);
+	
+	private static final int MEMORY_THRESHOLD   = 1024 * 1024 * 3 ;
+	private static final int MAX_FILE_SIZE      = 1024 * 1024 * 40;
+	private static final int MAX_REQUEST_SIZE   = 1024 * 1024 * 50;	
+	
+	@Autowired
+	UploadDao uploadDao;
+
+	@Override
+	public String saveFile(HttpServletRequest request)
+			throws ServletException, IOException {		
+
+		log.debug("開始執行saveFile方法上傳檔案");
+
+		// 建立一個以disk-base的檔案物件
+		DiskFileItemFactory factory = new DiskFileItemFactory();
+		
+		// 初始化內容
+        // 傳送所用的buffer空間
+		factory.setSizeThreshold(MEMORY_THRESHOLD);
+		
+		// 設定檔案暫存位置
+		// System.getProperty("java.io.tmpdir")是獲取操作系統暫存的臨時目錄
+		factory.setRepository(new File(System.getProperty("java.io.tmpdir")));
+
+		// 建立一個檔案上傳的物件
+		ServletFileUpload upload = new ServletFileUpload(factory);
+		
+		// 最大檔案大小
+		upload.setFileSizeMax(MAX_FILE_SIZE);
+
+		// 最大請求值(包含檔案大小和表單數據)
+		upload.setSizeMax(MAX_REQUEST_SIZE);
+		
+		// UTF-8編碼
+		upload.setHeaderEncoding("UTF-8");
+		
+		//儲存路徑
+		String uploadPath = "D:\\tempFile";
+		
+		// 如果目錄不在就建立
+		File uploadDir = new File(uploadPath);
+		if (!uploadDir.exists()) {
+			uploadDir.mkdir();
+		}
+		
+		String filePath = "";
+		
+		try {
+			
+			// 取得上傳物件陣列(上傳檔案個數)
+			List<FileItem> formItems = upload.parseRequest(request);
+			// 判斷陣列是否為空和陣列大小
+			if (formItems != null && formItems.size() > 0) {
+				for (FileItem item : formItems) {
+					// 是否為純文字檔
+					if (!item.isFormField()) {
+						// 取得檔名
+						String fileName = item.getName();
+						// 建立完整檔案路徑 ，File.separator='/'
+						filePath = uploadPath + File.separator + fileName;
+						// 建立檔案
+						File storeFile = new File(filePath);
+						// 輸出檔案內容
+						item.write(storeFile);
+						log.debug("成功上傳檔案，檔案名為 : " + fileName);
+					}
+				}
+				log.debug("上傳檔案完畢");
+				log.debug("回傳路徑為 : " + filePath);
+				return filePath;
+			}
+			return null;
+		} catch (Exception e) {
+			log.debug("上傳檔案發生錯誤，錯誤為 : " + e.toString());
+			filePath = "";
+			return null;
+		}
+	}
+
+	@SuppressWarnings("resource")
+	@Override
+	public List<Score> getScoreList(String filePath) 
+			throws FileNotFoundException, IOException {
+		
+		log.debug("開始執行getScoreList方法解析資料");
+		
+		List<Score> scoreList = new ArrayList<Score>();
+		
+		try {
+			
+			//建立資料流
+			InputStream is = new FileInputStream(filePath);
+			
+			//建立工作本
+			Workbook workbook = null;
+			
+			//判斷資料表格式，xls使用HSSF、xlsx使用XSSF
+			String extString = filePath.substring(filePath.lastIndexOf(".")+1);
+			if("xls".equals(extString)){
+				workbook = new HSSFWorkbook(is);
+			}else if("xlsx".equals(extString)){
+				workbook = new XSSFWorkbook(is);
+			}
+						
+			//取得第一個工作表
+			XSSFSheet sheet = (XSSFSheet) workbook.getSheetAt(0);
+						
+			//取得行數
+			int rowNum=sheet.getLastRowNum();
+			
+			log.debug("資料筆數 : " + rowNum);
+			
+			log.debug("開始寫入資料");
+			
+			for(int i=1;i<=rowNum;i++){
+				
+				//取得每列資料
+				XSSFRow row = sheet.getRow(i);
+				String number = row.getCell(0).toString();
+				String name = row.getCell(1).toString();
+				String chinese = row.getCell(2).toString();
+				String math = row.getCell(3).toString();
+				String english = row.getCell(4).toString();
+				
+				//處理資料
+				int number_int = (int)Float.parseFloat(number);
+				int chinese_int = (int)Float.parseFloat(chinese);
+				int math_int = (int)Float.parseFloat(math);
+				int english_int = (int)Float.parseFloat(english);
+				
+				//建立Score物件
+				Score score = new Score();
+				score.setNumber(number_int);
+				score.setName(name);
+				score.setChinese(chinese_int);
+				score.setMath(math_int);
+				score.setEnglish(english_int);
+						
+				scoreList.add(score);
+			}
+			workbook.close();
+			log.debug("成功取得資料陣列");
+			
+			return scoreList;
+			
+		} catch (Exception e) {
+			log.debug("讀取資料表發生錯誤，錯誤為 : " + e.toString());
+			return null;
+		}
+		
+	}
+	
+	@Override
+	public void saveAndUpdate(List<Score> scoreList) 
+			throws ServletException, IOException {
+		
+		try {
+			log.debug("開始執行saveAndUpdate方法上傳資料庫");
+			uploadDao.saveOrUpdate(scoreList);
+			log.debug("成功上傳資料庫");
+		} catch (Exception e) {
+			log.debug("上傳資料庫發生錯誤，錯誤為 : " + e.toString());
+		}
+
+	}
+	@Override
+	public String savetheFile(HttpServletRequest request) 
+			throws ServletException, IOException{
+		InputStream input = null;
+		try {
+			input = new FileInputStream("C:\\Users\\user\\Desktop\\game.txt");
+			OutputStream output = new FileOutputStream("C:\\Users\\user\\Desktop\\gameout.txt");
+			int n;
+			while ((n = input.read()) != -1) {
+				System.out.print((char)n);
+				output.write(n);
+			}
+			}finally {}
+		
+		return null;
+		
+	}
+}

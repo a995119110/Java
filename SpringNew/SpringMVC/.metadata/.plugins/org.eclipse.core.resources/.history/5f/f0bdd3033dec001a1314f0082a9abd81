@@ -1,0 +1,35 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Index</title>
+</head>
+<body>
+<h2>Java SpringMVC練習</h2>
+<br>
+<p>前往影片實作頁面---<button onclick="goHello();">go to hello</button></p>
+<br>
+<br>
+<p>前往上傳Excel頁面---<button onclick="goUpload();">go to upload</button></p>
+<br><br>
+<p>前往下載Excel頁面---<button onclick="goDownload();">go to download</button></p>
+</body>
+<script>
+	function goHello(){
+		alert(location.href);
+		url = "users/page";
+		location.href += url;
+	}
+	
+	function goUpload(){
+		var url = location.href;
+		url += "/upload/page";
+		location.href = url;
+	}
+	function goDownload(){
+		var url = location.href;
+		url += "/download/page";
+		location.href = url;
+	}
+</script>
+</html>
