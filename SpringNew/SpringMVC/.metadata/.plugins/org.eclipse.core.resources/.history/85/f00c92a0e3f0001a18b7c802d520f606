@@ -1,0 +1,95 @@
+package com.controllers;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.entities.Score;
+import com.services.UploadServices;
+
+@Controller
+@RequestMapping(value="upload")
+public class UploadController {
+
+	private static final Logger log = Logger.getLogger(UploadController.class);
+	
+	@Autowired
+	UploadServices uploadServices;
+	
+	@RequestMapping(value = "/page", method = RequestMethod.GET)
+	public ModelAndView getPage() {
+		ModelAndView view = new ModelAndView("upload");
+		log.debug("開啟Upload頁面");
+		return view;
+	}
+	
+	@RequestMapping(value = "/uploadFile", method = RequestMethod.POST)
+	public @ResponseBody Map<String,Object> uploadFile(HttpServletRequest request) 
+			throws ServletException, IOException{
+		
+		Map<String,Object> map = new HashMap<String,Object>();
+		
+		String filePath = "";
+		
+		List<Score> scoreList = null;
+		
+		int count = 0;
+		
+		try {
+			filePath = uploadServices.saveFile(request);
+			count++;
+		} catch (Exception e) {
+			log.debug("檔案上傳失敗，錯誤為  : " + e.toString());
+			map.put("message", "上傳檔案過程發生錯誤，請重新再試或聯絡資訊部人員");
+			return map;
+		}
+		
+		
+		
+		if (count == 1) {
+			try {
+				scoreList = uploadServices.getScoreList(filePath);
+				count++;
+			} catch (Exception e) {
+				log.debug("取得陣列資料失敗，錯誤為  : " + e.toString());
+				map.put("message", "上傳檔案成功，但解析過程出問題，請重新再試或聯絡資訊部人員");
+				return map;
+			}
+		}
+		
+		
+		if (count == 2) {
+			try {
+				uploadServices.saveAndUpdate(scoreList);
+				map.put("message", "執行成功");
+			} catch (Exception e) {
+				log.debug("上傳資料庫失敗，錯誤為  : " + e.toString());
+				map.put("message", "上傳檔案成功，但資料庫傳輸過程出問題，請重新再試或聯絡資訊部人員");
+				return map;
+			}
+		}
+		return map;
+	}
+	
+	@RequestMapping(value = "/UploadandDownloadFile")
+	public @ResponseBody Map<String,Object> UploadandDownloadFile(HttpServletRequest request) 
+			throws ServletException, IOException{
+		Map<String,Object> map = new HashMap<String,Object>();
+		
+		String filePath = uploadServices.savetheFile(request);
+		
+		return map;
+	}
+}
